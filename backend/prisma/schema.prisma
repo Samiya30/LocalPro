@@ -1,0 +1,251 @@
+generator client {
+  provider = "prisma-client"
+  output   = "../src/generated/prisma"
+}
+
+datasource db {
+  provider = "postgresql"
+}
+
+enum Role {
+  CUSTOMER
+  PROVIDER
+  ADMIN
+}
+
+enum VerificationStatus {
+  PENDING
+  VERIFIED
+  REJECTED
+}
+
+enum BookingStatus {
+  PENDING
+  CONFIRMED
+  IN_PROGRESS
+  COMPLETED
+  CANCELLED
+  REJECTED
+}
+
+enum QuoteStatus {
+  PENDING
+  ACCEPTED
+  REJECTED
+  EXPIRED
+}
+
+enum PaymentStatus {
+  PENDING
+  PAID
+  FAILED
+  REFUNDED
+}
+
+model User {
+  id            String   @id @default(cuid())
+  name          String
+  email         String   @unique
+  password      String
+  phone         String?
+  role          Role     @default(CUSTOMER)
+  createdAt     DateTime @default(now())
+  updatedAt     DateTime @updatedAt
+
+  customerProfile CustomerProfile?
+  providerProfile ProviderProfile?
+
+  quoteRequests QuoteRequest[] @relation("CustomerQuotes")
+  bookings      Booking[]      @relation("CustomerBookings")
+  reviews       Review[]       @relation("CustomerReviews")
+  favorites     Favorite[]
+  messages      Message[]
+}
+
+model CustomerProfile {
+  id        String @id @default(cuid())
+  userId    String @unique
+  address   String?
+  city      String?
+  state     String?
+  pincode   String?
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+}
+
+model ProviderProfile {
+  id                 String             @id @default(cuid())
+  userId             String             @unique
+  businessName       String
+  description        String?
+  address            String?
+  city               String?
+  state              String?
+  pincode            String?
+  experienceYears    Int                @default(0)
+  verificationStatus VerificationStatus @default(PENDING)
+  rating             Float              @default(0)
+  totalReviews       Int                @default(0)
+  isAvailable        Boolean            @default(true)
+  createdAt          DateTime            @default(now())
+  updatedAt          DateTime            @updatedAt
+
+  user       User       @relation(fields: [userId], references: [id], onDelete: Cascade)
+  services   Service[]
+  areas      ServiceArea[]
+  bookings   Booking[]  @relation("ProviderBookings")
+  quotes     Quote[]    @relation("ProviderQuotes")
+  reviews    Review[]
+  favorites  Favorite[]
+}
+
+model Category {
+  id          String   @id @default(cuid())
+  name        String   @unique
+  slug        String   @unique
+  description String?
+  imageUrl    String?
+  isActive    Boolean  @default(true)
+  createdAt   DateTime @default(now())
+
+  services Service[]
+}
+
+model Service {
+  id          String   @id @default(cuid())
+  providerId  String
+  categoryId  String
+  name        String
+  description String?
+  price       Float
+  isActive    Boolean  @default(true)
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  provider ProviderProfile @relation(fields: [providerId], references: [id], onDelete: Cascade)
+  category Category        @relation(fields: [categoryId], references: [id], onDelete: Cascade)
+
+  quoteRequests QuoteRequest[]
+  bookings      Booking[]
+}
+
+model ServiceArea {
+  id         String @id @default(cuid())
+  providerId String
+  city       String
+  state      String
+  pincode    String?
+
+  provider ProviderProfile @relation(fields: [providerId], references: [id], onDelete: Cascade)
+}
+
+model QuoteRequest {
+  id          String      @id @default(cuid())
+  customerId  String
+  serviceId   String
+  description String?
+  status      QuoteStatus @default(PENDING)
+  createdAt   DateTime    @default(now())
+
+  customer User    @relation("CustomerQuotes", fields: [customerId], references: [id], onDelete: Cascade)
+  service  Service @relation(fields: [serviceId], references: [id], onDelete: Cascade)
+
+  quotes Quote[]
+}
+
+model Quote {
+  id             String      @id @default(cuid())
+  quoteRequestId String
+  providerId     String
+  amount         Float
+  message        String?
+  status         QuoteStatus @default(PENDING)
+  createdAt      DateTime    @default(now())
+
+  quoteRequest QuoteRequest    @relation(fields: [quoteRequestId], references: [id], onDelete: Cascade)
+  provider     ProviderProfile @relation("ProviderQuotes", fields: [providerId], references: [id], onDelete: Cascade)
+
+  booking Booking?
+}
+
+model Booking {
+  id         String        @id @default(cuid())
+  customerId String
+  providerId String
+  serviceId  String
+  quoteId    String?       @unique
+  bookingDate DateTime
+  startTime  String
+  endTime    String
+  amount     Float
+  status     BookingStatus @default(PENDING)
+  notes      String?
+  createdAt  DateTime      @default(now())
+  updatedAt  DateTime      @updatedAt
+
+  customer User            @relation("CustomerBookings", fields: [customerId], references: [id], onDelete: Cascade)
+  provider ProviderProfile @relation("ProviderBookings", fields: [providerId], references: [id], onDelete: Cascade)
+  service  Service         @relation(fields: [serviceId], references: [id], onDelete: Cascade)
+  quote    Quote?          @relation(fields: [quoteId], references: [id])
+
+  payment Payment?
+  review  Review?
+}
+
+model Payment {
+  id        String        @id @default(cuid())
+  bookingId String        @unique
+  amount    Float
+  status    PaymentStatus @default(PENDING)
+  provider  String?
+  transactionId String?
+  createdAt DateTime      @default(now())
+
+  booking Booking @relation(fields: [bookingId], references: [id], onDelete: Cascade)
+}
+
+model Review {
+  id         String   @id @default(cuid())
+  customerId String
+  providerId String
+  bookingId  String   @unique
+  rating     Int
+  comment    String?
+  createdAt  DateTime @default(now())
+
+  customer User            @relation("CustomerReviews", fields: [customerId], references: [id], onDelete: Cascade)
+  provider ProviderProfile @relation(fields: [providerId], references: [id], onDelete: Cascade)
+  booking  Booking         @relation(fields: [bookingId], references: [id], onDelete: Cascade)
+}
+
+model Favorite {
+  id         String @id @default(cuid())
+  customerId String
+  providerId String
+  createdAt  DateTime @default(now())
+
+  customer User            @relation(fields: [customerId], references: [id], onDelete: Cascade)
+  provider ProviderProfile @relation(fields: [providerId], references: [id], onDelete: Cascade)
+
+  @@unique([customerId, providerId])
+}
+
+model Conversation {
+  id        String   @id @default(cuid())
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  messages Message[]
+}
+
+model Message {
+  id             String   @id @default(cuid())
+  conversationId String
+  senderId       String
+  content        String
+  createdAt      DateTime @default(now())
+  isRead         Boolean  @default(false)
+
+  conversation Conversation @relation(fields: [conversationId], references: [id], onDelete: Cascade)
+  sender       User         @relation(fields: [senderId], references: [id], onDelete: Cascade)
+}
