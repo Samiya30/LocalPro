@@ -4,8 +4,11 @@ import dotenv from "dotenv";
 
 import { prisma } from "./lib/prisma.js";
 import authRouter from "./routes/auth.js";
+import categoryRouter from "./routes/category.js";
+import providerRouter from "./routes/provider.js";
 import {
   authenticate,
+  authorize,
   type AuthenticatedRequest,
 } from "./middleware/auth.js";
 dotenv.config();
@@ -19,10 +22,11 @@ app.use(
     credentials: true,
   })
 );
-
+app.use("/api/categories", categoryRouter);
 app.use(express.json());
 
 app.use("/api/auth", authRouter);
+app.use("/api/providers", providerRouter);
 
 app.get("/api/health", async (_req, res) => {
   try {
@@ -84,6 +88,48 @@ app.get(
     });
   }
 });
+
+app.get(
+  "/api/test/customer",
+  authenticate,
+  authorize("CUSTOMER"),
+  (req: AuthenticatedRequest, res) => {
+    res.json({
+      success: true,
+      message: "Customer-only route accessed successfully",
+      userId: req.user!.id,
+      role: req.user!.role,
+    });
+  }
+);
+
+app.get(
+  "/api/test/provider",
+  authenticate,
+  authorize("PROVIDER"),
+  (req: AuthenticatedRequest, res) => {
+    res.json({
+      success: true,
+      message: "Provider-only route accessed successfully",
+      userId: req.user!.id,
+      role: req.user!.role,
+    });
+  }
+);
+
+app.get(
+  "/api/test/admin",
+  authenticate,
+  authorize("ADMIN"),
+  (req: AuthenticatedRequest, res) => {
+    res.json({
+      success: true,
+      message: "Admin-only route accessed successfully",
+      userId: req.user!.id,
+      role: req.user!.role,
+    });
+  }
+);
 
 app.listen(PORT, () => {
   console.log(`LocalPro API running on http://localhost:${PORT}`);
