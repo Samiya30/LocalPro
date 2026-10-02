@@ -1,6 +1,7 @@
 import { Menu, UserRound, X } from "lucide-react";
 import { useState } from "react";
 import { Link } from "react-router-dom";
+import NotificationBell from "../ui/NotificationBell";
 
 function Navbar() {
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
@@ -31,6 +32,8 @@ function Navbar() {
               For Professionals
             </Link>
 
+            <NotificationBell />
+
             <Link
               to="/login"
               className="text-sm font-medium text-slate-600 transition hover:text-blue-600"
@@ -46,18 +49,22 @@ function Navbar() {
             </Link>
           </nav>
 
-          <button
-            type="button"
-            onClick={() => setMobileMenuOpen((open) => !open)}
-            className="flex h-10 w-10 items-center justify-center rounded-lg text-slate-600 md:hidden"
-            aria-label="Toggle navigation"
-          >
-            {mobileMenuOpen ? (
-              <X className="h-5 w-5" />
-            ) : (
-              <Menu className="h-5 w-5" />
-            )}
-          </button>
+          <div className="flex items-center gap-2 md:hidden">
+            <NotificationBell />
+
+            <button
+              type="button"
+              onClick={() => setMobileMenuOpen((open) => !open)}
+              className="flex h-10 w-10 items-center justify-center rounded-lg text-slate-600"
+              aria-label="Toggle navigation"
+            >
+              {mobileMenuOpen ? (
+                <X className="h-5 w-5" />
+              ) : (
+                <Menu className="h-5 w-5" />
+              )}
+            </button>
+          </div>
         </div>
 
         {mobileMenuOpen && (

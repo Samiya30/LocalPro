@@ -376,4 +376,273 @@ router.get(
   }
 );
 
+/**
+ * Get a public provider profile
+ */
+router.get("/:providerId", async (req, res) => {
+  try {
+    const { providerId } = req.params;
+
+    const provider = await prisma.providerProfile.findFirst({
+      where: {
+        id: providerId,
+        verificationStatus: "VERIFIED",
+      },
+      include: {
+        user: {
+          select: {
+            id: true,
+            name: true,
+            phone: true,
+          },
+        },
+
+        services: {
+          where: {
+            isActive: true,
+          },
+          include: {
+            category: true,
+          },
+          orderBy: {
+            createdAt: "desc",
+          },
+        },
+
+        areas: {
+          orderBy: {
+            city: "asc",
+          },
+        },
+
+        reviews: {
+          include: {
+            customer: {
+              select: {
+                name: true,
+              },
+            },
+          },
+          orderBy: {
+            createdAt: "desc",
+          },
+          take: 10,
+        },
+      },
+    });
+
+    if (!provider) {
+      return res.status(404).json({
+        success: false,
+        message: "Provider not found",
+      });
+    }
+
+    return res.json({
+      success: true,
+      data: {
+        provider,
+      },
+    });
+  } catch (error) {
+    console.error("Fetch public provider profile error:", error);
+
+    return res.status(500).json({
+      success: false,
+      message: "Unable to fetch provider profile",
+    });
+  }
+});
+
+/**
+ * Provider dashboard
+ */
+router.get(
+  "/dashboard",
+  authenticate,
+  authorize("PROVIDER"),
+  async (req: AuthenticatedRequest, res) => {
+    try {
+      const provider = await prisma.providerProfile.findUnique({
+        where: {
+          userId: req.user!.id,
+        },
+        include: {
+          user: {
+            select: {
+              id: true,
+              name: true,
+              email: true,
+              phone: true,
+              createdAt: true,
+            },
+          },
+          services: {
+            where: {
+              isActive: true,
+            },
+            include: {
+              category: true,
+            },
+            orderBy: {
+              createdAt: "desc",
+            },
+          },
+          areas: {
+            orderBy: {
+              city: "asc",
+            },
+          },
+          availability: {
+            where: {
+              isActive: true,
+            },
+            orderBy: {
+              dayOfWeek: "asc",
+            },
+          },
+          reviews: {
+            include: {
+              customer: {
+                select: {
+                  id: true,
+                  name: true,
+                },
+              },
+            },
+            orderBy: {
+              createdAt: "desc",
+            },
+            take: 10,
+          },
+        },
+      });
+
+      if (!provider) {
+        return res.status(404).json({
+          success: false,
+          message: "Provider profile not found",
+        });
+      }
+
+      const [
+        quoteRequests,
+        bookings,
+        completedBookings,
+      ] = await Promise.all([
+        prisma.quoteRequest.findMany({
+          where: {
+            service: {
+              providerId: provider.id,
+            },
+          },
+          include: {
+            customer: {
+              select: {
+                id: true,
+                name: true,
+                email: true,
+                phone: true,
+              },
+            },
+            service: {
+              include: {
+                category: true,
+              },
+            },
+            quotes: true,
+          },
+          orderBy: {
+            createdAt: "desc",
+          },
+          take: 10,
+        }),
+
+        prisma.booking.findMany({
+          where: {
+            providerId: provider.id,
+          },
+          include: {
+            customer: {
+              select: {
+                id: true,
+                name: true,
+                email: true,
+                phone: true,
+              },
+            },
+            service: {
+              include: {
+                category: true,
+              },
+            },
+            payment: true,
+            review: true,
+          },
+          orderBy: {
+            bookingDate: "desc",
+          },
+          take: 10,
+        }),
+
+        prisma.booking.findMany({
+          where: {
+            providerId: provider.id,
+            status: "COMPLETED",
+          },
+          select: {
+            amount: true,
+          },
+        }),
+      ]);
+
+      const pendingRequests = quoteRequests.filter(
+        (request) => request.status === "PENDING"
+      ).length;
+
+      const activeBookings = bookings.filter(
+        (booking) =>
+          booking.status === "PENDING" ||
+          booking.status === "CONFIRMED" ||
+          booking.status === "IN_PROGRESS"
+      ).length;
+
+      const completedCount = bookings.filter(
+        (booking) => booking.status === "COMPLETED"
+      ).length;
+
+      const totalEarnings = completedBookings.reduce(
+        (total, booking) => total + booking.amount,
+        0
+      );
+
+      return res.json({
+        success: true,
+        data: {
+          provider,
+          stats: {
+            pendingRequests,
+            activeBookings,
+            completedBookings: completedCount,
+            totalEarnings,
+            rating: provider.rating,
+            totalReviews: provider.totalReviews,
+            totalServices: provider.services.length,
+          },
+          quoteRequests,
+          bookings,
+          reviews: provider.reviews,
+        },
+      });
+    } catch (error) {
+      console.error("Provider dashboard error:", error);
+
+      return res.status(500).json({
+        success: false,
+        message: "Unable to load provider dashboard",
+      });
+    }
+  }
+);
+
 export default router;

@@ -60,6 +60,8 @@ model User {
   reviews       Review[]       @relation("CustomerReviews")
   favorites     Favorite[]
   messages      Message[]
+  notifications Notification[]
+  customerConversations Conversation[] @relation("CustomerConversations")
 }
 
 model CustomerProfile {
@@ -97,6 +99,8 @@ model ProviderProfile {
   quotes     Quote[]    @relation("ProviderQuotes")
   reviews    Review[]
   favorites  Favorite[]
+  availability ProviderAvailability[]
+  customerConversations Conversation[] @relation("ProviderConversations")
 }
 
 model Category {
@@ -137,6 +141,19 @@ model ServiceArea {
   pincode    String?
 
   provider ProviderProfile @relation(fields: [providerId], references: [id], onDelete: Cascade)
+}
+
+model ProviderAvailability {
+  id         String   @id @default(cuid())
+  providerId String
+  dayOfWeek  Int
+  startTime  String
+  endTime    String
+  isActive   Boolean  @default(true)
+
+  provider ProviderProfile @relation(fields: [providerId], references: [id], onDelete: Cascade)
+
+  @@unique([providerId, dayOfWeek, startTime, endTime])
 }
 
 model QuoteRequest {
@@ -231,11 +248,19 @@ model Favorite {
 }
 
 model Conversation {
-  id        String   @id @default(cuid())
-  createdAt DateTime @default(now())
-  updatedAt DateTime @updatedAt
+  id          String   @id @default(cuid())
+  customerId  String
+  providerId  String
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
 
+  customer User            @relation("CustomerConversations", fields: [customerId], references: [id], onDelete: Cascade)
+  provider ProviderProfile @relation("ProviderConversations", fields: [providerId], references: [id], onDelete: Cascade)
   messages Message[]
+
+  @@unique([customerId, providerId])
+  @@index([customerId])
+  @@index([providerId])
 }
 
 model Message {
@@ -248,4 +273,19 @@ model Message {
 
   conversation Conversation @relation(fields: [conversationId], references: [id], onDelete: Cascade)
   sender       User         @relation(fields: [senderId], references: [id], onDelete: Cascade)
+}
+
+model Notification {
+  id        String   @id @default(cuid())
+  userId    String
+  title     String
+  message   String
+  type      String
+  isRead    Boolean  @default(false)
+  createdAt DateTime @default(now())
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId, isRead])
+  @@index([createdAt])
 }

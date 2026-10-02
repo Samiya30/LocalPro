@@ -1,15 +1,88 @@
-import { Link } from "react-router-dom";
+import { Link, useNavigate } from "react-router-dom";
 import { ArrowLeft, LockKeyhole, Mail, Wrench } from "lucide-react";
+import { FormEvent, useState } from "react";
+
+import api from "../../services/api";
+import {
+  saveAuthData,
+  type AuthUser,
+} from "../../services/authService";
+
+interface LoginResponse {
+  success: boolean;
+  message: string;
+  data: {
+    token: string;
+    user: AuthUser;
+  };
+}
 
 function Login() {
+  const navigate = useNavigate();
+
+  const [email, setEmail] = useState("");
+  const [password, setPassword] = useState("");
+
+  const [loading, setLoading] = useState(false);
+  const [error, setError] = useState("");
+
+  async function handleSubmit(event: FormEvent<HTMLFormElement>) {
+    event.preventDefault();
+
+    setError("");
+
+    if (!email.trim() || !password) {
+      setError("Email and password are required.");
+      return;
+    }
+
+    try {
+      setLoading(true);
+
+      const response = await api.post<LoginResponse>(
+        "/api/auth/login",
+        {
+          email: email.trim(),
+          password,
+        }
+      );
+
+      if (!response.data.success) {
+        setError(
+          response.data.message || "Unable to log in."
+        );
+        return;
+      }
+
+      const { token, user } = response.data.data;
+
+      saveAuthData(token, user);
+
+      if (user.role === "PROVIDER") {
+        navigate("/provider/dashboard");
+      } else if (user.role === "ADMIN") {
+        navigate("/admin/dashboard");
+      } else {
+        navigate("/customer/dashboard");
+      }
+    } catch (error: any) {
+      console.error("Login error:", error);
+
+      const message =
+        error.response?.data?.message ||
+        "Unable to log in. Please check your credentials.";
+
+      setError(message);
+    } finally {
+      setLoading(false);
+    }
+  }
+
   return (
     <div className="min-h-screen bg-slate-50">
-
       <div className="mx-auto flex min-h-screen max-w-7xl">
-
         {/* LEFT */}
         <div className="hidden w-1/2 bg-slate-950 p-12 lg:flex lg:flex-col lg:justify-between">
-
           <Link to="/" className="flex items-center gap-2">
             <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-blue-600">
               <Wrench className="h-5 w-5 text-white" />
@@ -21,7 +94,6 @@ function Login() {
           </Link>
 
           <div>
-
             <p className="text-sm font-semibold uppercase tracking-widest text-blue-400">
               Welcome back
             </p>
@@ -34,20 +106,16 @@ function Login() {
               Find professionals, manage your bookings and keep everything
               organized in one place.
             </p>
-
           </div>
 
           <p className="text-sm text-slate-500">
             © 2026 LocalPro
           </p>
-
         </div>
 
         {/* RIGHT */}
         <div className="flex flex-1 items-center justify-center px-6 py-12">
-
           <div className="w-full max-w-md">
-
             <Link
               to="/"
               className="mb-8 inline-flex items-center gap-2 text-sm font-medium text-slate-500 hover:text-blue-600"
@@ -57,9 +125,7 @@ function Login() {
             </Link>
 
             <div className="rounded-3xl border border-slate-200 bg-white p-8 shadow-xl shadow-slate-200/40">
-
               <div className="mb-8">
-
                 <div className="mb-5 flex h-12 w-12 items-center justify-center rounded-xl bg-blue-50">
                   <LockKeyhole className="h-6 w-6 text-blue-600" />
                 </div>
@@ -71,35 +137,41 @@ function Login() {
                 <p className="mt-2 text-sm text-slate-500">
                   Log in to continue to LocalPro.
                 </p>
-
               </div>
 
-              <form className="space-y-5">
+              {error && (
+                <div className="mb-5 rounded-xl border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-600">
+                  {error}
+                </div>
+              )}
 
+              <form
+                className="space-y-5"
+                onSubmit={handleSubmit}
+              >
                 <div>
-
                   <label className="text-sm font-semibold text-slate-700">
                     Email address
                   </label>
 
                   <div className="relative mt-2">
-
                     <Mail className="absolute left-4 top-1/2 h-5 w-5 -translate-y-1/2 text-slate-400" />
 
                     <input
                       type="email"
+                      value={email}
+                      onChange={(event) =>
+                        setEmail(event.target.value)
+                      }
                       placeholder="you@example.com"
+                      autoComplete="email"
                       className="w-full rounded-xl border border-slate-200 bg-white py-3.5 pl-12 pr-4 text-slate-900 outline-none transition placeholder:text-slate-400 focus:border-blue-500 focus:ring-4 focus:ring-blue-50"
                     />
-
                   </div>
-
                 </div>
 
                 <div>
-
                   <div className="flex items-center justify-between">
-
                     <label className="text-sm font-semibold text-slate-700">
                       Password
                     </label>
@@ -110,42 +182,44 @@ function Login() {
                     >
                       Forgot password?
                     </button>
-
                   </div>
 
                   <div className="relative mt-2">
-
                     <LockKeyhole className="absolute left-4 top-1/2 h-5 w-5 -translate-y-1/2 text-slate-400" />
 
                     <input
                       type="password"
+                      value={password}
+                      onChange={(event) =>
+                        setPassword(event.target.value)
+                      }
                       placeholder="Enter your password"
+                      autoComplete="current-password"
                       className="w-full rounded-xl border border-slate-200 bg-white py-3.5 pl-12 pr-4 text-slate-900 outline-none transition placeholder:text-slate-400 focus:border-blue-500 focus:ring-4 focus:ring-blue-50"
                     />
-
                   </div>
-
                 </div>
 
                 <button
                   type="submit"
-                  className="w-full rounded-xl bg-blue-600 py-3.5 font-semibold text-white shadow-lg shadow-blue-600/20 transition hover:bg-blue-700"
+                  disabled={loading}
+                  className="w-full rounded-xl bg-blue-600 py-3.5 font-semibold text-white shadow-lg shadow-blue-600/20 transition hover:bg-blue-700 disabled:cursor-not-allowed disabled:opacity-60"
                 >
-                  Log in
+                  {loading ? "Logging in..." : "Log in"}
                 </button>
-
               </form>
 
               <div className="my-7 flex items-center gap-4">
                 <div className="h-px flex-1 bg-slate-200" />
+
                 <span className="text-xs text-slate-400">
                   OR
                 </span>
+
                 <div className="h-px flex-1 bg-slate-200" />
               </div>
 
               <p className="text-center text-sm text-slate-500">
-
                 Don't have an account?{" "}
 
                 <Link
@@ -154,17 +228,11 @@ function Login() {
                 >
                   Create one
                 </Link>
-
               </p>
-
             </div>
-
           </div>
-
         </div>
-
       </div>
-
     </div>
   );
 }

@@ -6,6 +6,16 @@ import { prisma } from "./lib/prisma.js";
 import authRouter from "./routes/auth.js";
 import categoryRouter from "./routes/category.js";
 import providerRouter from "./routes/provider.js";
+import searchRouter from "./routes/search.js";
+import quoteRouter from "./routes/quote.js";
+import bookingRouter from "./routes/booking.js";
+import messageRouter from "./routes/message.js";
+import reviewRouter from "./routes/review.js";
+import favoriteRouter from "./routes/favorite.js";
+import customerRouter from "./routes/customer.js";
+import adminRouter from "./routes/admin.js";
+import notificationRouter from "./routes/notification.js";
+
 import {
   authenticate,
   authorize,
@@ -27,6 +37,15 @@ app.use(express.json());
 
 app.use("/api/auth", authRouter);
 app.use("/api/providers", providerRouter);
+app.use("/api/search", searchRouter);
+app.use("/api/quotes", quoteRouter);
+app.use("/api/bookings", bookingRouter);
+app.use("/api/messages", messageRouter);
+app.use("/api/reviews", reviewRouter);
+app.use("/api/favorites", favoriteRouter);
+app.use("/api/customers", customerRouter);
+app.use("/api/admin", adminRouter);
+app.use("/api/notifications", notificationRouter);
 
 app.get("/api/health", async (_req, res) => {
   try {
